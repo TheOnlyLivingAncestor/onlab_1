@@ -1,7 +1,7 @@
 // Defer-rel töltöttem be a scriptet, így a html elemek már léteznek, amikor ezt a kódot futtatom
 
 
-const FUNCTION_URL = "http://127.0.0.1:8080/function/easyocr-lexa";
+const FUNCTION_URL = "/image_processing/easyocr-lexa";
 const form = document.getElementById("detectionForm");
 
 function encodeImageFileAsURL(file) {
@@ -38,7 +38,7 @@ form.addEventListener("submit", async (event) => {
         const response = await fetch(FUNCTION_URL, {
             method: "POST",
             headers: {
-                "Content-Type": "application/json",
+                "Content-Type": "application/json"
             },
             body: JSON.stringify({
                 image: image_base64
