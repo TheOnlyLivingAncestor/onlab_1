@@ -18,7 +18,23 @@ function getBase64FromDataURL(dataURL) {
     let b64 = dataURL.replace(/^data:[^;]+;base64,/, "").replace(/\s+/g, "");
     while (b64.length % 4 !== 0) b64 += "=";
     return b64;
-} 
+}
+
+async function uploadImageToStorage(image) {
+    const formData = new FormData();
+    formData.append('image', image);
+
+    const response = await fetch('/upload', {
+        method: 'POST',
+        body: formData
+    });
+
+    if(response.ok){
+        console.log('Sikeres képfeltöltés!');
+    } else {
+        console.error('Hiba történt a kép feltöltése során!')
+    }
+}
 
 form.addEventListener("submit", async (event) => {
     event.preventDefault()
@@ -31,6 +47,11 @@ form.addEventListener("submit", async (event) => {
     }
 
     try {
+        await uploadImageToStorage(image)
+
+        //OCR image feldolgozás
+        //TODO: image nevet át kell adni az ocr function-nak
+
         const dataUrl = await encodeImageFileAsURL(image);
         const image_base64 = getBase64FromDataURL(dataUrl);
         //Az openfaas function egyenlőre csak az image-t várja
