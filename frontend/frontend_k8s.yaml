@@ -1,3 +1,50 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: nginx-config
+data:
+  default.conf: |
+    server {
+        listen       80;
+        listen  [::]:80;
+        server_name  localhost;
+
+        #access_log  /var/log/nginx/host.access.log  main;
+
+        location / {
+            root   /usr/share/nginx/html;
+            index  index.html index.htm;
+        }
+
+        location /image_processing/ {
+            proxy_pass http://gateway.openfaas.svc.cluster.local:8080/function/;
+        }
+
+        #Image upload to object storage via server backend
+        location /upload {
+            proxy_pass http://callback-node-server.callback-server.svc.cluster.local/upload;
+            client_max_body_size 100M;
+            proxy_set_header Host $host;
+            proxy_set_header X-Real-IP $remote_addr;
+            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+            proxy_set_header X-Forwarded-Proto $scheme;
+        }
+
+        #Object storage image download
+        location /download_url/ {
+            proxy_pass http://callback-node-server.callback-server.svc.cluster.local:80/download_url/;
+        }
+
+        #error_page  404              /404.html;
+
+        # redirect server error pages to the static page /50x.html
+        #
+        error_page   500 502 503 504  /50x.html;
+        location = /50x.html {
+            root   /usr/share/nginx/html;
+        }
+      }
+---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -12,9 +59,17 @@ spec:
       labels:
         app: easyocr-lexa-frontend
     spec:
+      volumes:
+        - name: nginx-config-volume
+          configMap:
+            name: nginx-config
       containers:
       - name: nginx
         image: vitezalexandra/easyocr-lexa-frontend:latest
+        volumeMounts:
+        - name: nginx-config-volume
+          mountPath: /etc/nginx/conf.d/default.conf
+          subPath: default.conf 
         ports:
         - containerPort: 80
           name: frontend-port
