@@ -8,8 +8,13 @@ app.use(express.json());
 
 const results = {};
 
+//OpenFaas környezeti változók beolvasása
+const openfaasGateway = process.env.OPENFAAS_GATEWAY;
+const ocrFunction = process.env.OCR_FUNCTION_NAME;
+// `${openfaasGateway}/function/${ocrFunction}`
+
 const minioClient = new Minio.Client({
-    endPoint: "minio.minio.svc.cluster.local",
+    endPoint: process.env.MINIO_ENDPOINT,
     port: 9000,
     useSSL: false,
     accessKey: process.env.MINIO_ROOT_USER,

@@ -26,6 +26,21 @@ spec:
             secretKeyRef:
               name: minio-credentials
               key: MINIO_ROOT_PASSWORD
+        - name: MINIO_ENDPOINT
+          valueFrom:
+            configMapKeyRef:
+              name: server-config
+              key: objectStorageEndPoint
+        - name: OPENFAAS_GATEWAY
+          valueFrom:
+            configMapKeyRef:
+              name: server-config
+              key: openfaasGateway
+        - name: OCR_FUNCTION_NAME
+          valueFrom:
+            configMapKeyRef:
+              name: server-config
+              key: openfaasFunctionName
         ports:
         - containerPort: 3000
 ---
@@ -50,3 +65,12 @@ type: Opaque
 stringData:
   MINIO_ROOT_USER: minioadmin
   MINIO_ROOT_PASSWORD: minioadmin
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: server-config
+data:
+  objectStorageEndPoint: "minio.minio.svc.cluster.local"
+  openfaasGateway: "http://gateway.openfaas.svc.cluster.local:8080"
+  openfaasFunctionName: "easyocr-lexa"
