@@ -41,6 +41,11 @@ spec:
             configMapKeyRef:
               name: server-config
               key: openfaasFunctionName
+        - name: STORAGE_BUCKET_NAME
+          valueFrom:
+            configMapKeyRef:
+              name: server-config
+              key: objectStorageBucket
         ports:
         - containerPort: 3000
 ---
@@ -74,3 +79,4 @@ data:
   objectStorageEndPoint: "minio.minio.svc.cluster.local"
   openfaasGateway: "http://gateway.openfaas.svc.cluster.local:8080"
   openfaasFunctionName: "easyocr-lexa"
+  objectStorageBucket: "ocr-bucket"

@@ -1,17 +1,14 @@
 const express = require("express");
 const Minio = require("minio");
 const multer = require("multer");
+const { promisify } = require("util");
+const fs = require('fs').promises;
 const app = express();
 const uploadImageToStorage = multer({ storage: multer.memoryStorage() });
 
 app.use(express.json());
 
 const results = {};
-
-//OpenFaas környezeti változók beolvasása
-const openfaasGateway = process.env.OPENFAAS_GATEWAY;
-const ocrFunction = process.env.OCR_FUNCTION_NAME;
-// `${openfaasGateway}/function/${ocrFunction}`
 
 const minioClient = new Minio.Client({
     endPoint: process.env.MINIO_ENDPOINT,
@@ -21,8 +18,47 @@ const minioClient = new Minio.Client({
     secretKey: process.env.MINIO_ROOT_PASSWORD,
 });
 
-app.post('/upload', uploadImageToStorage.single('image'), async (req, res) => {
+//MinIO metódusai callback-esek, és hogy olvasható legyen a kód, promisify-val átírjuk őket
+const presignedGetObjectAsync = promisify(minioClient.presignedGetObject.bind(minioClient));
+const presignedPutObjectAsync = promisify(minioClient.presignedPutObject.bind(minioClient));
+const fGetObjectAsync = promisify(minioClient.fGetObject.bind(minioClient));
+
+async function generatePresignedUrls(bucket, imageName, resultImageName, expirySeconds = 600){
     try {
+        const getUrl = await presignedGetObjectAsync(bucket, imageName, expirySeconds);
+        const putUrl = await presignedPutObjectAsync(bucket, resultImageName, expirySeconds);
+        return {
+            imageUrl: getUrl,
+            uploadUrl: putUrl
+        }
+    } catch(err) {
+        throw err;
+    }
+}
+
+async function downloadFile(bucket, object, filePath){
+    try {
+        await fGetObjectAsync(bucket, object, filePath);
+        console.log(`A fájl letöltése sikeres volt a ${filePath} helyre.`);
+    } catch(err) {
+        console.error('Hiba történt a fájl letöltése során: ', err);
+        throw err;
+    }
+}
+
+async function readJsonFile(filePath){
+    try {
+        const jsonData = await fs.readFile(filePath, 'utf-8');
+        const data = JSON.parse(jsonData);
+        return data;
+    } catch(err){
+        console.error('Hiba a fájl beolvasása során: ', err);
+    }
+}
+
+app.post('/process', uploadImageToStorage.single('image'), async (req, res) => {
+    try {
+    // A kép feltöltése object storage-ba
         if(!req.file){
             return res.status(400).send('Nem érkezett fájl.');
         }
@@ -30,13 +66,37 @@ app.post('/upload', uploadImageToStorage.single('image'), async (req, res) => {
 
         const fileBuffer = req.file.buffer;
         const extension = req.file.originalname.split('.').pop();
-        const fileName = `${uuidv4()}.${extension}`;
+        const fileId = uuidv4();
+        const fileName = `${fileId}.${extension}`;
         console.log("Fájl feltöltése a következő filename-val: " + fileName);
 
-        await minioClient.putObject('ocr-bucket', fileName, fileBuffer);
+        await minioClient.putObject(process.env.STORAGE_BUCKET_NAME, fileName, fileBuffer);
+        const resultFileName = `${fileId}-result.json`;
+        const urls = await generatePresignedUrls(process.env.STORAGE_BUCKET_NAME, fileName,resultFileName)
 
-        //visszaküldjük a filename-t
-        res.send({ fileName });
+    //A két url elküldése az ocr function-nak OCR elemzésre
+        const FUNCTION_URL=`${process.env.OPENFAAS_GATEWAY}/function/${process.env.OCR_FUNCTION_NAME}`
+        const response = await fetch(FUNCTION_URL, {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json"
+            },
+            body: JSON.stringify({
+                getUrl: urls.imageUrl,
+                putUrl: urls.uploadUrl
+            })
+        });
+        //Ha valami hiba volt az ocr function futása során, itt eldobjuk
+        if (!response.ok) {
+            const text = await response.text();
+            throw  new Error(`Hálózati hiba: ${response.status} - ${text}`);
+        }
+    
+    // Visszaküldjük az ocr eredményét a frontendre
+        await downloadFile(process.env.STORAGE_BUCKET_NAME, resultFileName, '/tmp/result.json');
+        const result_json = await readJsonFile('/tmp/result.json');
+
+        res.json(result_json);
 
     } catch (error) {
         console.error(error);
