@@ -22,11 +22,6 @@ def handle(event, context):
         #Kép letöltése object storage-ból
         image = download_image(imageBody['getUrl'])
 
-        #Kép dekódolása base64-ról
-        #image_bytes = base64.b64decode(imageBody['image']) #b64decode byte-ket küld vissza
-        #image_array = np.frombuffer(image_bytes, dtype=np.uint8)
-        #image = cv2.imdecode(image_array, cv2.IMREAD_COLOR)
-
         #EasyOCR lefuttatása a képre
         results = reader.readtext(image, paragraph=True, slope_ths=0.4, width_ths=0.7)
 
@@ -58,10 +53,6 @@ def handle(event, context):
 
         return {
             "statusCode": 200,
-            "body": json.dumps({
-                "image": annotated_b64,
-                "results": results_json
-            })
         }
 
     except Exception as e:
