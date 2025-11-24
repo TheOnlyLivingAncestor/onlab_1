@@ -1,7 +1,13 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: callback-server
+---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: callback-node-server
+  namespace: callback-server
 spec:
   replicas: 1
   selector:
@@ -53,6 +59,7 @@ apiVersion: v1
 kind: Service
 metadata:
   name: callback-node-server
+  namespace: callback-server
 spec:
   selector:
     app: callback-node-server
@@ -66,6 +73,7 @@ apiVersion: v1
 kind: Secret
 metadata:
   name: minio-credentials
+  namespace: callback-server
 type: Opaque
 stringData:
   MINIO_ROOT_USER: minioadmin
@@ -75,6 +83,7 @@ apiVersion: v1
 kind: ConfigMap
 metadata:
   name: server-config
+  namespace: callback-server
 data:
   objectStorageEndPoint: "minio.minio.svc.cluster.local"
   openfaasGateway: "http://gateway.openfaas.svc.cluster.local:8080"

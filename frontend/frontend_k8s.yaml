@@ -1,7 +1,13 @@
 apiVersion: v1
+kind: Namespace
+metadata:
+  name: frontend
+---
+apiVersion: v1
 kind: ConfigMap
 metadata:
   name: nginx-config
+  namespace: frontend
 data:
   default.conf: |
     server {
@@ -40,6 +46,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: easyocr-lexa-frontend
+  namespace: frontend
 spec:
   selector:
     matchLabels:
@@ -70,6 +77,7 @@ apiVersion: v1
 kind: Service
 metadata:
   name: easyocr-lexa-frontend-service
+  namespace: frontend
 spec:
   type: NodePort
   selector:
