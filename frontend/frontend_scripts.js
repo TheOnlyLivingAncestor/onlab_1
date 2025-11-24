@@ -1,38 +1,22 @@
 // Defer-rel töltöttem be a scriptet, így a html elemek már léteznek, amikor ezt a kódot futtatom
-
-
-const FUNCTION_URL = "/image_processing/easyocr-lexa";
 const form = document.getElementById("detectionForm");
 
-function encodeImageFileAsURL(file) {
-    return new Promise((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onload = () => resolve(reader.result);
-        reader.onerror = () => reject(new Error("Hiba a fájl olvasásakor"));
-        reader.readAsDataURL(file);
-    });
-} 
-
-function getBase64FromDataURL(dataURL) {
-    // eltávolítja a "data:*/*;base64," előtagot, törli a whitespace-t és paddol ha kell
-    let b64 = dataURL.replace(/^data:[^;]+;base64,/, "").replace(/\s+/g, "");
-    while (b64.length % 4 !== 0) b64 += "=";
-    return b64;
-}
-
-async function uploadImageToStorage(image) {
+async function imageProcessing(image) {
     const formData = new FormData();
     formData.append('image', image);
 
-    const response = await fetch('/upload', {
+    const response = await fetch('/process', {
         method: 'POST',
         body: formData
     });
 
     if(response.ok){
         console.log('Sikeres képfeltöltés!');
+        return response
     } else {
-        console.error('Hiba történt a kép feltöltése során!')
+        console.error('Hiba történt a kép processzálása során!')
+        const text = await response.text();
+        throw  new Error(`Hálózati hiba: ${response.status} - ${text}`);
     }
 }
 
@@ -47,32 +31,10 @@ form.addEventListener("submit", async (event) => {
     }
 
     try {
-        await uploadImageToStorage(image)
-
-        //OCR image feldolgozás
-        //TODO: image nevet át kell adni az ocr function-nak
-
-        const dataUrl = await encodeImageFileAsURL(image);
-        const image_base64 = getBase64FromDataURL(dataUrl);
-        //Az openfaas function egyenlőre csak az image-t várja
-        //ezt az image-t most csak base64-ként küldjük el
-        const response = await fetch(FUNCTION_URL, {
-            method: "POST",
-            headers: {
-                "Content-Type": "application/json"
-            },
-            body: JSON.stringify({
-                image: image_base64
-            })
-        });
-
-        if (!response.ok) {
-            const text = await response.text();
-            throw  new Error(`Hálózati hiba: ${response.status} - ${text}`);
-        }
+        const response = await imageProcessing(image);
         const result = await response.json();
-        console.log("Eredmény az OCR feldolgozásból:", result);
 
+        //Visszaérkezett eredmény megjelenítése
         let imagecontainer = document.getElementById("imageContainer");
         let resultcontainer = document.getElementById("resultContainer");
         imagecontainer.innerHTML = '';
